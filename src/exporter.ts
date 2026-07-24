@@ -1,4 +1,51 @@
-import { getState } from './state.ts';
+import { getState, generateId } from './state.ts';
+import type { AppEvent } from './types.ts';
+
+export interface ParsedImportResult {
+  events: AppEvent[];
+  totalLines: number;
+  skippedLines: number;
+  negativeCount: number;
+  fileName: string;
+}
+
+const MC_PATTERN = /^execute if score Timer show matches (\d+) run function festival:(.+)$/i;
+
+export function parseMcfunctionContent(content: string, fileName: string): ParsedImportResult {
+  const state = getState();
+  const st = state.startTime;
+  const startSeconds = st.hours * 3600 + st.minutes * 60 + st.seconds;
+
+  const lines = content.split('\n');
+  const events: AppEvent[] = [];
+  let skippedLines = 0;
+  let negativeCount = 0;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const match = line.match(MC_PATTERN);
+    if (!match) {
+      skippedLines++;
+      continue;
+    }
+
+    const tick = parseInt(match[1], 10);
+    const effect = match[2].trim();
+    const festivalTime = tick / 20;
+    const playbackTime = festivalTime - startSeconds;
+
+    if (playbackTime < 0) negativeCount++;
+
+    events.push({ id: generateId(), tick, effect, festivalTime, playbackTime });
+  }
+
+  // Sort by tick ascending
+  events.sort((a, b) => a.tick - b.tick);
+
+  return { events, totalLines: lines.length, skippedLines, negativeCount, fileName };
+}
 
 export function exportMcfunction() {
   const state = getState();
@@ -17,14 +64,7 @@ export function exportMcfunction() {
     `execute if score Timer show matches ${ev.tick} run function festival:${ev.effect}`
   );
 
-  const content = lines.join('\n');
-  downloadText(content, `${fileName}.mcfunction`, 'text/plain');
-}
-
-export function exportJSON() {
-  const state = getState();
-  const json = JSON.stringify(state, null, 2);
-  downloadText(json, 'mc_festival_project.json', 'application/json');
+  downloadText(lines.join('\n'), `${fileName}.mcfunction`, 'text/plain');
 }
 
 function downloadText(content: string, filename: string, mime: string) {

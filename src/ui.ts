@@ -3,6 +3,7 @@ import { EFFECT_CATEGORIES, ALL_EFFECTS, getEffectColor } from './effects.ts';
 import { getState, toggleFavorite, setStartTime, removeEvent as removeEventFromState } from './state.ts';
 import { updateEventFromModal } from './eventList.ts';
 import { calcFestivalTick, calcFestivalTime } from './state.ts';
+import type { ParsedImportResult } from './exporter.ts';
 
 type EffectClickCallback = (effect: string) => void;
 
@@ -259,3 +260,103 @@ export function showEditEventModal(event: AppEvent) {
     if (e.target === modal) modal.remove();
   });
 }
+
+// ─── Import .mcfunction Modal ─────────────────────────────────────────────────
+
+export function showImportMcfunctionModal(result: ParsedImportResult, onConfirm: (events: AppEvent[], replace: boolean, skipNegative: boolean) => void) {
+  const existing = document.getElementById('import-mc-modal');
+  if (existing) existing.remove();
+
+  const hasNegative = result.negativeCount > 0;
+  const hasValid = result.events.length > 0;
+
+  const modal = document.createElement('div');
+  modal.id = 'import-mc-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-box" style="width:500px">
+      <div class="modal-header">
+        <h3>Import .mcfunction</h3>
+        <button class="btn-icon modal-close" id="close-import-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-file-name">
+          <span class="import-file-icon">📄</span>
+          <span>${escHtml(result.fileName)}</span>
+        </div>
+
+        <div class="import-stats">
+          <div class="import-stat">
+            <div class="import-stat-value ${!hasValid ? 'stat-warn' : ''}">${result.events.length}</div>
+            <div class="import-stat-label">Events found</div>
+          </div>
+          ${result.skippedLines > 0 ? `
+          <div class="import-stat">
+            <div class="import-stat-value stat-muted">${result.skippedLines}</div>
+            <div class="import-stat-label">Lines skipped</div>
+          </div>` : ''}
+          ${hasNegative ? `
+          <div class="import-stat">
+            <div class="import-stat-value stat-warn">${result.negativeCount}</div>
+            <div class="import-stat-label">Before artist start</div>
+          </div>` : ''}
+          ${result.events.length > 0 ? `
+          <div class="import-stat">
+            <div class="import-stat-value stat-accent">${result.events[0].tick}</div>
+            <div class="import-stat-label">First tick</div>
+          </div>
+          <div class="import-stat">
+            <div class="import-stat-value stat-accent">${result.events[result.events.length - 1].tick}</div>
+            <div class="import-stat-label">Last tick</div>
+          </div>` : ''}
+        </div>
+
+        ${hasNegative ? `
+        <div class="import-warning">
+          <strong>⚠ ${result.negativeCount} event${result.negativeCount > 1 ? 's' : ''} fall before your current artist start time.</strong>
+          <br>These events will have a negative playback time. You may skip them or import all.
+          <div class="import-negative-option" style="margin-top:10px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="skip-negative" checked />
+              <span>Skip events before artist start time</span>
+            </label>
+          </div>
+        </div>` : ''}
+
+        ${!hasValid ? `<div class="import-warning">No valid <code>execute if score</code> lines found. Check the file format.</div>` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="cancel-import-btn">Cancel</button>
+        <div class="modal-footer-right">
+          <button class="btn btn-ghost" id="add-import-btn" ${!hasValid ? 'disabled' : ''}>Add to Existing</button>
+          <button class="btn btn-primary" id="replace-import-btn" ${!hasValid ? 'disabled' : ''}>Replace All</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector('#close-import-modal')?.addEventListener('click', () => modal.remove());
+  modal.querySelector('#cancel-import-btn')?.addEventListener('click', () => modal.remove());
+
+  function getSkipNegative(): boolean {
+    return (modal.querySelector('#skip-negative') as HTMLInputElement | null)?.checked ?? false;
+  }
+
+  modal.querySelector('#add-import-btn')?.addEventListener('click', () => {
+    onConfirm(result.events, false, getSkipNegative());
+    modal.remove();
+  });
+
+  modal.querySelector('#replace-import-btn')?.addEventListener('click', () => {
+    onConfirm(result.events, true, getSkipNegative());
+    modal.remove();
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+}
+
+

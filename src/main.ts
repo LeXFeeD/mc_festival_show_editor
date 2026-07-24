@@ -1,7 +1,7 @@
 import './style.css';
 import {
   getState, subscribe, undo, redo, canUndo, canRedo,
-  addEvent, generateId, calcFestivalTick, calcFestivalTime,
+  addEvent, clearEvents, generateId, calcFestivalTick, calcFestivalTime,
 } from './state.ts';
 import {
   initAudio, loadAudioFile, play, pause, stop, seek,
@@ -10,8 +10,8 @@ import {
 } from './audio.ts';
 import { initTimeline, setTimelineEvents, setPlaybackTime, setZoom, doubleClickEvent, deleteHovered } from './timeline.ts';
 import { initEventList, setEventListData } from './eventList.ts';
-import { initEffectsPanel, refreshEffectsPanel, initStartTimePanel, refreshStartTimePanel, showEditEventModal } from './ui.ts';
-import { exportMcfunction } from './exporter.ts';
+import { initEffectsPanel, refreshEffectsPanel, initStartTimePanel, refreshStartTimePanel, showEditEventModal, showImportMcfunctionModal } from './ui.ts';
+import { exportMcfunction, parseMcfunctionContent } from './exporter.ts';
 import { autosave, loadFromStorage, exportProjectJSON, importProjectJSON } from './storage.ts';
 
 // ─── Elements ────────────────────────────────────────────────────────────────
@@ -31,7 +31,9 @@ const elAudioInput   = document.getElementById('audio-file-input') as HTMLInputE
 const elImportAudio  = document.getElementById('btn-import-audio')!;
 const elFileName     = document.getElementById('audio-file-name')!;
 const elRecInd       = document.getElementById('recording-indicator')!;
-const elJsonInput    = document.getElementById('json-file-input') as HTMLInputElement;
+const elJsonInput         = document.getElementById('json-file-input') as HTMLInputElement;
+const elMcfunctionInput   = document.getElementById('mcfunction-file-input') as HTMLInputElement;
+const elImportMcfunction  = document.getElementById('btn-import-mcfunction')!;
 const elEffectsPanel = document.getElementById('effects-panel')!;
 const elStartTime    = document.getElementById('start-time-container')!;
 const elTimeline     = document.getElementById('timeline-canvas') as HTMLCanvasElement;
@@ -253,6 +255,30 @@ elRedo.addEventListener('click', () => { redo(); syncUI(true); });
 elExport.addEventListener('click', () => exportMcfunction());
 elExportJSON.addEventListener('click', () => { exportProjectJSON(); toast('Project exported as JSON', 'success'); });
 elImportJSON.addEventListener('click', () => elJsonInput.click());
+
+// ─── Import .mcfunction ───────────────────────────────────────────────────────
+elImportMcfunction.addEventListener('click', () => elMcfunctionInput.click());
+elMcfunctionInput.addEventListener('change', () => {
+  const file = elMcfunctionInput.files?.[0];
+  if (!file) return;
+  elMcfunctionInput.value = '';
+  const reader = new FileReader();
+  reader.onload = () => {
+    const content = reader.result as string;
+    const result = parseMcfunctionContent(content, file.name);
+    showImportMcfunctionModal(result, (events, replace, skipNegative) => {
+      const toImport = skipNegative ? events.filter(e => e.playbackTime >= 0) : events;
+      if (replace) clearEvents();
+      for (const ev of toImport) addEvent(ev);
+      const count = toImport.length;
+      toast(`Imported ${count} event${count !== 1 ? 's' : ''}${replace ? ' (replaced existing)' : ''}`, 'success');
+      syncUI(false);
+    });
+  };
+  reader.onerror = () => toast('Could not read file', 'error');
+  reader.readAsText(file);
+});
+
 elJsonInput.addEventListener('change', () => {
   const file = elJsonInput.files?.[0];
   if (!file) return;
