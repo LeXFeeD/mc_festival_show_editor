@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MC Festival Show Editor</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎆</text></svg>" />
+  </head>
+  <body>
+    <div id="app">
+
+      <!-- ── Audio Player Header ──────────────────────────────── -->
+      <header id="audio-player">
+        <div class="app-title">MC Festival Show Editor</div>
+
+        <div class="player-file-section">
+          <button class="btn btn-sm" id="btn-import-audio" title="Import audio file (Ctrl+O)">
+            &#9654; Import
+          </button>
+          <input type="file" id="audio-file-input" accept="audio/*" style="display:none" />
+          <span id="audio-file-name">No file loaded</span>
+        </div>
+
+        <div class="player-controls">
+          <button class="btn-player" id="btn-stop" title="Stop (S)">&#9632;</button>
+          <button class="btn-player btn-play-pause" id="btn-play-pause" title="Play/Pause (Space)">&#9654;</button>
+          <div class="recording-pulse" id="recording-indicator" style="display:none"></div>
+        </div>
+
+        <div class="player-time">
+          <div id="current-time">00:00.000</div>
+          <div id="total-duration">00:00.000</div>
+        </div>
+
+        <div class="player-seek-section">
+          <div class="seek-bar-wrapper">
+            <input type="range" id="seek-bar" min="0" max="1000" value="0" step="1" title="Seek" />
+          </div>
+        </div>
+
+        <div class="player-zoom-section">
+          <span class="zoom-label">Zoom</span>
+          <input type="range" id="zoom-slider" min="20" max="400" value="80" step="5" title="Timeline zoom (Ctrl+Scroll)" />
+          <span class="zoom-label" id="zoom-value">80px/s</span>
+        </div>
+
+        <div class="player-actions">
+          <button class="btn btn-ghost btn-sm" id="btn-undo" title="Undo (Ctrl+Z)">&#8617; Undo</button>
+          <button class="btn btn-ghost btn-sm" id="btn-redo" title="Redo (Ctrl+Y)">&#8618; Redo</button>
+          <button class="btn btn-primary btn-sm" id="btn-export" title="Export .mcfunction (Ctrl+E)">&#8595; Export</button>
+          <button class="btn btn-ghost btn-sm" id="btn-export-json" title="Export project JSON">&#8645; JSON</button>
+          <button class="btn btn-ghost btn-sm" id="btn-import-json" title="Import project JSON">&#8645; Import</button>
+          <input type="file" id="json-file-input" accept="application/json,.json" style="display:none" />
+        </div>
+      </header>
+
+      <!-- ── Workspace ────────────────────────────────────────── -->
+      <div id="workspace">
+
+        <!-- ── Left: Effects Panel ────────────────────────────── -->
+        <aside id="effects-panel"></aside>
+
+        <!-- ── Right: Timeline + Events ──────────────────────── -->
+        <main id="main-panel">
+
+          <!-- Start Time -->
+          <div id="start-time-container"></div>
+
+          <!-- Timeline -->
+          <div id="timeline-container">
+            <div class="timeline-toolbar">
+              <span>Timeline</span>
+              <span class="text-muted" style="font-size:10px;color:var(--text-dim)">
+                Right-click marker to edit &bull; Drag to move &bull; Ctrl+Scroll to zoom
+              </span>
+            </div>
+            <div id="timeline-scroll-wrapper">
+              <canvas id="timeline-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Event List -->
+          <div id="events-container"></div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
