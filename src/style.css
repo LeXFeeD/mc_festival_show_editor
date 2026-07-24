@@ -123,16 +123,41 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 100px;
+  min-width: 120px;
   gap: 2px;
 }
 
-#current-time {
+.time-display-input {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--text);
   letter-spacing: 0.04em;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  outline: none;
+  text-align: center;
+  width: 110px;
+  padding: 3px 6px;
+  cursor: text;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.time-display-input:hover {
+  border-color: var(--border);
+  background: var(--bg-base);
+}
+
+.time-display-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-base);
+  color: var(--accent);
+}
+
+.time-display-input.invalid {
+  border-color: var(--red);
+  color: var(--red);
 }
 
 #total-duration {
@@ -482,15 +507,38 @@ body {
 
 .timeline-toolbar span { margin-right: 4px; }
 
-#timeline-scroll-wrapper {
-  overflow-x: auto;
-  overflow-y: hidden;
+/* Virtual canvas approach: canvas is always viewport-sized */
+#timeline-outer {
+  position: relative;
+  overflow: hidden;
   height: var(--timeline-h);
-  cursor: default;
 }
 
 #timeline-canvas {
   display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+#timeline-scrollbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  height: 10px;
+}
+
+#timeline-scrollbar::-webkit-scrollbar { height: 6px; }
+#timeline-scrollbar::-webkit-scrollbar-track { background: #0a0a12; }
+#timeline-scrollbar::-webkit-scrollbar-thumb { background: #3a3a58; border-radius: 3px; }
+#timeline-scrollbar::-webkit-scrollbar-thumb:hover { background: #5a5a88; }
+
+#timeline-scrollbar-inner {
+  height: 1px;
+  min-width: 100%;
 }
 
 /* ── Event List ─────────────────────────────────────────────── */

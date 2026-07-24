@@ -15,23 +15,23 @@ import { exportMcfunction } from './exporter.ts';
 import { autosave, loadFromStorage, exportProjectJSON, importProjectJSON } from './storage.ts';
 
 // ─── Elements ────────────────────────────────────────────────────────────────
-const elPlayPause   = document.getElementById('btn-play-pause')!;
-const elStop        = document.getElementById('btn-stop')!;
-const elCurrentTime = document.getElementById('current-time')!;
-const elDuration    = document.getElementById('total-duration')!;
-const elSeekBar     = document.getElementById('seek-bar') as HTMLInputElement;
-const elZoomSlider  = document.getElementById('zoom-slider') as HTMLInputElement;
-const elZoomValue   = document.getElementById('zoom-value')!;
-const elUndo        = document.getElementById('btn-undo')!;
-const elRedo        = document.getElementById('btn-redo')!;
-const elExport      = document.getElementById('btn-export')!;
-const elExportJSON  = document.getElementById('btn-export-json')!;
-const elImportJSON  = document.getElementById('btn-import-json')!;
-const elAudioInput  = document.getElementById('audio-file-input') as HTMLInputElement;
-const elImportAudio = document.getElementById('btn-import-audio')!;
-const elFileName    = document.getElementById('audio-file-name')!;
-const elRecInd      = document.getElementById('recording-indicator')!;
-const elJsonInput   = document.getElementById('json-file-input') as HTMLInputElement;
+const elPlayPause    = document.getElementById('btn-play-pause')!;
+const elStop         = document.getElementById('btn-stop')!;
+const elCurrentTime  = document.getElementById('current-time') as HTMLInputElement;
+const elDuration     = document.getElementById('total-duration')!;
+const elSeekBar      = document.getElementById('seek-bar') as HTMLInputElement;
+const elZoomSlider   = document.getElementById('zoom-slider') as HTMLInputElement;
+const elZoomValue    = document.getElementById('zoom-value')!;
+const elUndo         = document.getElementById('btn-undo')!;
+const elRedo         = document.getElementById('btn-redo')!;
+const elExport       = document.getElementById('btn-export')!;
+const elExportJSON   = document.getElementById('btn-export-json')!;
+const elImportJSON   = document.getElementById('btn-import-json')!;
+const elAudioInput   = document.getElementById('audio-file-input') as HTMLInputElement;
+const elImportAudio  = document.getElementById('btn-import-audio')!;
+const elFileName     = document.getElementById('audio-file-name')!;
+const elRecInd       = document.getElementById('recording-indicator')!;
+const elJsonInput    = document.getElementById('json-file-input') as HTMLInputElement;
 const elEffectsPanel = document.getElementById('effects-panel')!;
 const elStartTime    = document.getElementById('start-time-container')!;
 const elTimeline     = document.getElementById('timeline-canvas') as HTMLCanvasElement;
@@ -52,22 +52,24 @@ subscribe(() => syncUI(false));
 
 // ─── Audio player ─────────────────────────────────────────────────────────────
 let _seeking = false;
+let _editingTime = false; // user is typing in the time input
 
 initAudio({
   onLoaded(fileName, duration) {
     elFileName.textContent = fileName;
-    elDuration.textContent = formatTime(duration);
+    elDuration.textContent = `/ ${formatTime(duration)}`;
     elSeekBar.max = String(Math.floor(duration * 1000));
     elSeekBar.value = '0';
-    elCurrentTime.textContent = '00:00.000';
+    if (!_editingTime) elCurrentTime.value = formatTime(0);
     setPlaybackTime(0, duration);
     toast(`Loaded: ${fileName}`, 'info');
   },
   onTimeUpdate(current, duration) {
-    if (!_seeking) {
-      elCurrentTime.textContent = formatTime(current);
-      elSeekBar.value = String(Math.floor(current * 1000));
+    if (!_seeking && !_editingTime) {
+      elCurrentTime.value = formatTime(current);
+      elCurrentTime.classList.remove('invalid');
     }
+    if (!_seeking) elSeekBar.value = String(Math.floor(current * 1000));
     setPlaybackTime(current, duration);
   },
   onStateChange(state) {
@@ -99,12 +101,76 @@ elStop.addEventListener('click', stop);
 elSeekBar.addEventListener('mousedown', () => { _seeking = true; });
 elSeekBar.addEventListener('input', () => {
   const t = parseInt(elSeekBar.value) / 1000;
-  elCurrentTime.textContent = formatTime(t);
+  if (!_editingTime) elCurrentTime.value = formatTime(t);
 });
 elSeekBar.addEventListener('mouseup', () => {
   _seeking = false;
   seek(parseInt(elSeekBar.value) / 1000);
 });
+
+// ─── Time input (manual editing) ──────────────────────────────────────────────
+elCurrentTime.addEventListener('focus', () => {
+  _editingTime = true;
+  elCurrentTime.select();
+});
+
+elCurrentTime.addEventListener('blur', () => {
+  _editingTime = false;
+  const t = parseTimeInput(elCurrentTime.value);
+  if (t !== null && isLoaded()) {
+    seek(t);
+    elCurrentTime.classList.remove('invalid');
+  } else {
+    // Restore current time display if invalid
+    elCurrentTime.value = formatTime(getCurrentTime());
+    elCurrentTime.classList.remove('invalid');
+  }
+});
+
+elCurrentTime.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    elCurrentTime.blur();
+  } else if (e.key === 'Escape') {
+    _editingTime = false;
+    elCurrentTime.value = formatTime(getCurrentTime());
+    elCurrentTime.classList.remove('invalid');
+    elCurrentTime.blur();
+  }
+});
+
+elCurrentTime.addEventListener('input', () => {
+  const t = parseTimeInput(elCurrentTime.value);
+  if (t !== null) {
+    elCurrentTime.classList.remove('invalid');
+  } else {
+    elCurrentTime.classList.add('invalid');
+  }
+});
+
+function parseTimeInput(str: string): number | null {
+  str = str.trim();
+  // HH:MM:SS.mmm  or  HH:MM:SS
+  const m1 = str.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:[.,](\d+))?$/);
+  if (m1) {
+    const h = parseInt(m1[1]);
+    const m = parseInt(m1[2]);
+    const s = parseInt(m1[3]);
+    const ms = m1[4] ? parseFloat('0.' + m1[4]) : 0;
+    return h * 3600 + m * 60 + s + ms;
+  }
+  // MM:SS.mmm  or  MM:SS
+  const m2 = str.match(/^(\d+):(\d{1,2})(?:[.,](\d+))?$/);
+  if (m2) {
+    const m = parseInt(m2[1]);
+    const s = parseInt(m2[2]);
+    const ms = m2[3] ? parseFloat('0.' + m2[3]) : 0;
+    return m * 60 + s + ms;
+  }
+  // Plain seconds
+  const n = parseFloat(str);
+  if (!isNaN(n) && n >= 0) return n;
+  return null;
+}
 
 // ─── Zoom ─────────────────────────────────────────────────────────────────────
 elZoomSlider.addEventListener('input', () => {
@@ -148,10 +214,9 @@ function showRecordFlash(effect: string, tick: number) {
   setTimeout(() => flash.remove(), 1500);
 }
 
-// ─── Effects panel init ───────────────────────────────────────────────────────
+// ─── Effects panel ────────────────────────────────────────────────────────────
 initEffectsPanel(elEffectsPanel, (effect) => {
   recordEffect(effect);
-  // Flash the button
   const btn = elEffectsPanel.querySelector(`[data-effect="${effect}"]`) as HTMLElement | null;
   if (btn) {
     btn.style.background = 'rgba(0,200,255,0.2)';
@@ -162,25 +227,21 @@ initEffectsPanel(elEffectsPanel, (effect) => {
 // ─── Start time panel ─────────────────────────────────────────────────────────
 initStartTimePanel(elStartTime);
 
-// ─── Timeline init ────────────────────────────────────────────────────────────
+// ─── Timeline ────────────────────────────────────────────────────────────────
 initTimeline(elTimeline, {
   onSeek(time) { seek(time); },
-  onEditEvent(event) {
-    showEditEventModal(event);
-  },
+  onEditEvent(event) { showEditEventModal(event); },
 });
 
 elTimeline.addEventListener('dblclick', (e) => {
   doubleClickEvent(e as MouseEvent);
 });
 
-// ─── Event list init ──────────────────────────────────────────────────────────
+// ─── Event list ───────────────────────────────────────────────────────────────
 initEventList(elEventsContainer);
 
 // ─── Undo / Redo ──────────────────────────────────────────────────────────────
 function updateUndoRedoButtons() {
-  elUndo.toggleAttribute('disabled', !canUndo());
-  elRedo.toggleAttribute('disabled', !canRedo());
   (elUndo as HTMLButtonElement).style.opacity = canUndo() ? '1' : '0.4';
   (elRedo as HTMLButtonElement).style.opacity = canRedo() ? '1' : '0.4';
 }
@@ -190,7 +251,7 @@ elRedo.addEventListener('click', () => { redo(); syncUI(true); });
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 elExport.addEventListener('click', () => exportMcfunction());
-elExportJSON.addEventListener('click', () => exportJSON());
+elExportJSON.addEventListener('click', () => { exportProjectJSON(); toast('Project exported as JSON', 'success'); });
 elImportJSON.addEventListener('click', () => elJsonInput.click());
 elJsonInput.addEventListener('change', () => {
   const file = elJsonInput.files?.[0];
@@ -200,25 +261,18 @@ elJsonInput.addEventListener('change', () => {
     .catch((err: Error) => toast(err.message, 'error'));
 });
 
-function exportJSON() {
-  exportProjectJSON();
-  toast('Project exported as JSON', 'success');
-}
-
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
-  const inInput = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+  const isInput = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
 
-  if (e.code === 'Space' && !inInput) {
+  if (e.code === 'Space' && !isInput) {
     e.preventDefault();
     if (!isLoaded()) return;
     getAudioState() === 'playing' ? pause() : play();
   }
 
-  if ((e.key === 's' || e.key === 'S') && !inInput && !e.ctrlKey) {
-    stop();
-  }
+  if ((e.key === 's' || e.key === 'S') && !isInput && !e.ctrlKey) stop();
 
   if (e.ctrlKey || e.metaKey) {
     switch (e.key) {
@@ -230,9 +284,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  if (e.key === 'Delete' && !inInput) {
-    deleteHovered();
-  }
+  if (e.key === 'Delete' && !isInput) deleteHovered();
 });
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -240,18 +292,12 @@ function toast(msg: string, type: 'info' | 'success' | 'error' = 'info') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.textContent = msg;
-  const container = document.getElementById('toast-container')!;
-  container.appendChild(el);
+  document.getElementById('toast-container')!.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
 
-// ─── Load saved state ─────────────────────────────────────────────────────────
+// ─── Init ─────────────────────────────────────────────────────────────────────
 const loaded = loadFromStorage();
-if (loaded) {
-  syncUI(true);
-  toast('Project restored from autosave', 'info');
-} else {
-  syncUI(true);
-}
-
+syncUI(true);
+if (loaded) toast('Project restored from autosave', 'info');
 updateUndoRedoButtons();
